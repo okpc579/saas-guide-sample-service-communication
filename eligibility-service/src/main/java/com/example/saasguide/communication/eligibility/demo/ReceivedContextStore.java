@@ -1,0 +1,3 @@
+package com.example.saasguide.communication.eligibility.demo;
+import java.util.concurrent.ConcurrentHashMap; import org.springframework.stereotype.Component;
+@Component public class ReceivedContextStore { public record ReceivedContext(String applicantId,String tenantId,String requestId,String traceId,int receivedCount){} private final ConcurrentHashMap<String,ReceivedContext> values=new ConcurrentHashMap<>(); public void record(String id,String t,String r,String x){values.compute(id,(k,v)->new ReceivedContext(id,t,r,x,v==null?1:v.receivedCount()+1));} public ReceivedContext get(String id){return values.getOrDefault(id,new ReceivedContext(id,null,null,null,0));} }
