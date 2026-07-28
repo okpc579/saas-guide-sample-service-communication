@@ -1,0 +1,608 @@
+{
+  "info": {
+    "name": "Service communication 4.1.8",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "application_base_url",
+      "value": ""
+    },
+    {
+      "key": "eligibility_base_url",
+      "value": ""
+    },
+    {
+      "key": "tenant_id",
+      "value": ""
+    },
+    {
+      "key": "request_id",
+      "value": ""
+    },
+    {
+      "key": "trace_id",
+      "value": ""
+    },
+    {
+      "key": "applicant_id",
+      "value": ""
+    },
+    {
+      "key": "application_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. 정상 호출",
+      "item": [
+        {
+          "name": "동작 설정",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\": \"ELIGIBLE\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 0}"
+            }
+          }
+        },
+        {
+          "name": "민원 신청",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{application_base_url}}/api/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status',()=>pm.response.to.have.status(201));",
+                  "if (201===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "수신 Context 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. 업무상 부적격",
+      "item": [
+        {
+          "name": "동작 설정",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\": \"INELIGIBLE\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 0}"
+            }
+          }
+        },
+        {
+          "name": "민원 신청",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{application_base_url}}/api/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status',()=>pm.response.to.have.status(422));",
+                  "if (422===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "수신 Context 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. 애플리케이션 타임아웃",
+      "item": [
+        {
+          "name": "동작 설정",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\": \"ALWAYS_DELAY\", \"delayMillis\": 3000, \"failuresBeforeSuccess\": 0}"
+            }
+          }
+        },
+        {
+          "name": "민원 신청",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{application_base_url}}/api/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status',()=>pm.response.to.have.status(503));",
+                  "if (503===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "수신 Context 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. 제한적 재시도",
+      "item": [
+        {
+          "name": "동작 설정",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\": \"ERROR_THEN_SUCCESS\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 1}"
+            }
+          }
+        },
+        {
+          "name": "민원 신청",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{application_base_url}}/api/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status',()=>pm.response.to.have.status(201));",
+                  "if (201===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "수신 Context 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. 재시도 소진",
+      "item": [
+        {
+          "name": "동작 설정",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\": \"ALWAYS_ERROR\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 0}"
+            }
+          }
+        },
+        {
+          "name": "민원 신청",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{application_base_url}}/api/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status',()=>pm.response.to.have.status(503));",
+                  "if (503===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "수신 Context 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Service Mesh 504 변환 (Istio 전용)",
+      "item": [
+        {
+          "name": "동작 설정",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"outcome\": \"ALWAYS_DELAY\", \"delayMillis\": 3000, \"failuresBeforeSuccess\": 0}"
+            }
+          }
+        },
+        {
+          "name": "민원 신청",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{application_base_url}}/api/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status',()=>pm.response.to.have.status(503));",
+                  "if (503===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "수신 Context 조회",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenant_id}}"
+              },
+              {
+                "key": "X-Request-Id",
+                "value": "{{request_id}}"
+              },
+              {
+                "key": "X-Trace-Id",
+                "value": "{{trace_id}}"
+              }
+            ],
+            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: eligibility-service
+  namespace: service-communication
+spec:
+  hosts:
+    - eligibility-service
+  http:
+    - timeout: 2s
+      route:
+        - destination:
+            host: eligibility-service
+            port:
+              number: 8080

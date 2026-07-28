@@ -1,0 +1,3 @@
+server.port: 8081
+management.endpoints.web.exposure.include: health
+logging.pattern.level: "%5p tenantId=%X{tenantId} requestId=%X{requestId} traceId=%X{traceId}"

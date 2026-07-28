@@ -1,0 +1,11 @@
+server:
+  port: 8080
+clients:
+  eligibility:
+    base-url: ${ELIGIBILITY_BASE_URL:http://localhost:8081}
+    connect-timeout: ${ELIGIBILITY_CONNECT_TIMEOUT:1s}
+    read-timeout: ${ELIGIBILITY_READ_TIMEOUT:2s}
+    max-attempts: ${ELIGIBILITY_MAX_ATTEMPTS:2}
+    retry-delay: ${ELIGIBILITY_RETRY_DELAY:100ms}
+management.endpoints.web.exposure.include: health
+logging.pattern.level: "%5p tenantId=%X{tenantId} requestId=%X{requestId} traceId=%X{traceId}"
