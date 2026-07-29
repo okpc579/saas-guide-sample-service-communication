@@ -30,6 +30,7 @@ class ProfileConfigurationTest {
                 "clients.eligibility.connect-timeout", "1s")));
         return new Binder(ConfigurationPropertySources.from(sources))
                 .bind("clients.eligibility", EligibilityClientProperties.class)
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalStateException(
+                        "clients.eligibility configuration was not bound from " + name));
     }
 }
