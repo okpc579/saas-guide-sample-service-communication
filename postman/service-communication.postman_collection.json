@@ -1,41 +1,12 @@
 {
   "info": {
-    "name": "Service communication 4.1.8",
+    "name": "Service communication timeout",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    {
-      "key": "application_base_url",
-      "value": ""
-    },
-    {
-      "key": "eligibility_base_url",
-      "value": ""
-    },
-    {
-      "key": "tenant_id",
-      "value": ""
-    },
-    {
-      "key": "request_id",
-      "value": ""
-    },
-    {
-      "key": "trace_id",
-      "value": ""
-    },
-    {
-      "key": "applicant_id",
-      "value": ""
-    },
-    {
-      "key": "application_id",
-      "value": ""
-    }
-  ],
+  "variable": [],
   "item": [
     {
-      "name": "1. 정상 호출",
+      "name": "1. 정상 호출 및 Context 전달",
       "item": [
         {
           "name": "동작 설정",
@@ -62,7 +33,7 @@
             "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
             "body": {
               "mode": "raw",
-              "raw": "{\"outcome\": \"ELIGIBLE\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 0}"
+              "raw": "{\"scenario\": \"ELIGIBLE\", \"delayMillis\": 0}"
             }
           }
         },
@@ -91,7 +62,7 @@
             "url": "{{application_base_url}}/api/applications",
             "body": {
               "mode": "raw",
-              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+              "raw": "{\"applicantId\":\"{{applicant_id}}\"}"
             }
           },
           "event": [
@@ -99,15 +70,14 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('status',()=>pm.response.to.have.status(201));",
-                  "if (201===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                  "pm.test('status',()=>pm.response.to.have.status(201));"
                 ]
               }
             }
           ]
         },
         {
-          "name": "수신 Context 조회",
+          "name": "마지막 수신 Context 확인",
           "request": {
             "method": "GET",
             "header": [
@@ -125,7 +95,17 @@
               }
             ],
             "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('context forwarded',()=>{const body=pm.response.json();pm.expect(body.tenantId).to.eql(pm.environment.get('tenant_id'));pm.expect(body.requestId).to.eql(pm.environment.get('request_id'));pm.expect(body.traceId).to.eql(pm.environment.get('trace_id'));});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -157,7 +137,7 @@
             "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
             "body": {
               "mode": "raw",
-              "raw": "{\"outcome\": \"INELIGIBLE\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 0}"
+              "raw": "{\"scenario\": \"INELIGIBLE\", \"delayMillis\": 0}"
             }
           }
         },
@@ -186,7 +166,7 @@
             "url": "{{application_base_url}}/api/applications",
             "body": {
               "mode": "raw",
-              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+              "raw": "{\"applicantId\":\"{{applicant_id}}\"}"
             }
           },
           "event": [
@@ -195,37 +175,17 @@
               "script": {
                 "exec": [
                   "pm.test('status',()=>pm.response.to.have.status(422));",
-                  "if (422===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                  "pm.test('error code',()=>pm.expect(pm.response.json().code).to.eql('ELIGIBILITY_DENIED'));",
+                  "pm.test('internal details hidden',()=>{const text=pm.response.text();['http://','ResourceAccessException','SocketTimeoutException','Envoy','stackTrace'].forEach(value=>pm.expect(text).not.to.include(value));});"
                 ]
               }
             }
           ]
-        },
-        {
-          "name": "수신 Context 조회",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              }
-            ],
-            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
-          }
         }
       ]
     },
     {
-      "name": "3. 애플리케이션 타임아웃",
+      "name": "3. 애플리케이션 readTimeout",
       "item": [
         {
           "name": "동작 설정",
@@ -252,7 +212,7 @@
             "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
             "body": {
               "mode": "raw",
-              "raw": "{\"outcome\": \"ALWAYS_DELAY\", \"delayMillis\": 3000, \"failuresBeforeSuccess\": 0}"
+              "raw": "{\"scenario\": \"DELAY\", \"delayMillis\": 3000}"
             }
           }
         },
@@ -281,7 +241,7 @@
             "url": "{{application_base_url}}/api/applications",
             "body": {
               "mode": "raw",
-              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+              "raw": "{\"applicantId\":\"{{applicant_id}}\"}"
             }
           },
           "event": [
@@ -290,37 +250,17 @@
               "script": {
                 "exec": [
                   "pm.test('status',()=>pm.response.to.have.status(503));",
-                  "if (503===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                  "pm.test('error code',()=>pm.expect(pm.response.json().code).to.eql('ELIGIBILITY_SERVICE_UNAVAILABLE'));",
+                  "pm.test('internal details hidden',()=>{const text=pm.response.text();['http://','ResourceAccessException','SocketTimeoutException','Envoy','stackTrace'].forEach(value=>pm.expect(text).not.to.include(value));});"
                 ]
               }
             }
           ]
-        },
-        {
-          "name": "수신 Context 조회",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              }
-            ],
-            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
-          }
         }
       ]
     },
     {
-      "name": "4. 제한적 재시도",
+      "name": "4. 하위 서비스 오류 일반화",
       "item": [
         {
           "name": "동작 설정",
@@ -347,7 +287,7 @@
             "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
             "body": {
               "mode": "raw",
-              "raw": "{\"outcome\": \"ERROR_THEN_SUCCESS\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 1}"
+              "raw": "{\"scenario\": \"ERROR\", \"delayMillis\": 0}"
             }
           }
         },
@@ -376,102 +316,7 @@
             "url": "{{application_base_url}}/api/applications",
             "body": {
               "mode": "raw",
-              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('status',()=>pm.response.to.have.status(201));",
-                  "if (201===201) pm.environment.set('application_id',pm.response.json().applicationId);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "수신 Context 조회",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              }
-            ],
-            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
-          }
-        }
-      ]
-    },
-    {
-      "name": "5. 재시도 소진",
-      "item": [
-        {
-          "name": "동작 설정",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\"outcome\": \"ALWAYS_ERROR\", \"delayMillis\": 0, \"failuresBeforeSuccess\": 0}"
-            }
-          }
-        },
-        {
-          "name": "민원 신청",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{application_base_url}}/api/applications",
-            "body": {
-              "mode": "raw",
-              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
+              "raw": "{\"applicantId\":\"{{applicant_id}}\"}"
             }
           },
           "event": [
@@ -480,127 +325,12 @@
               "script": {
                 "exec": [
                   "pm.test('status',()=>pm.response.to.have.status(503));",
-                  "if (503===201) pm.environment.set('application_id',pm.response.json().applicationId);"
+                  "pm.test('error code',()=>pm.expect(pm.response.json().code).to.eql('ELIGIBILITY_SERVICE_UNAVAILABLE'));",
+                  "pm.test('internal details hidden',()=>{const text=pm.response.text();['http://','ResourceAccessException','SocketTimeoutException','Envoy','stackTrace'].forEach(value=>pm.expect(text).not.to.include(value));});"
                 ]
               }
             }
           ]
-        },
-        {
-          "name": "수신 Context 조회",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              }
-            ],
-            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
-          }
-        }
-      ]
-    },
-    {
-      "name": "6. Service Mesh 504 변환 (Istio 전용)",
-      "item": [
-        {
-          "name": "동작 설정",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{eligibility_base_url}}/api/testing/eligibility-behaviors/{{applicant_id}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\"outcome\": \"ALWAYS_DELAY\", \"delayMillis\": 3000, \"failuresBeforeSuccess\": 0}"
-            }
-          }
-        },
-        {
-          "name": "민원 신청",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{application_base_url}}/api/applications",
-            "body": {
-              "mode": "raw",
-              "raw": "{\"applicantId\": \"{{applicant_id}}\"}"
-            }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('status',()=>pm.response.to.have.status(503));",
-                  "if (503===201) pm.environment.set('application_id',pm.response.json().applicationId);"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "수신 Context 조회",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "X-Tenant-Id",
-                "value": "{{tenant_id}}"
-              },
-              {
-                "key": "X-Request-Id",
-                "value": "{{request_id}}"
-              },
-              {
-                "key": "X-Trace-Id",
-                "value": "{{trace_id}}"
-              }
-            ],
-            "url": "{{eligibility_base_url}}/api/testing/received-contexts/{{applicant_id}}"
-          }
         }
       ]
     }
