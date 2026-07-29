@@ -18,6 +18,13 @@ public class RequestContextFilter extends OncePerRequestFilter {
     private static final Pattern ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,127}");
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        // Health probes are infrastructure requests and do not have tenant context.
+        // Requiring X-Tenant-Id here made the smoke test's readiness probe fail with 500.
+        return request.getRequestURI().startsWith("/actuator/health");
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
