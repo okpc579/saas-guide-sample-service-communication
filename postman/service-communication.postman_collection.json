@@ -260,7 +260,7 @@
       ]
     },
     {
-      "name": "4. 하위 서비스 오류 일반화",
+      "name": "4. 하위 서비스 5xx 일반화",
       "item": [
         {
           "name": "동작 설정",
@@ -326,7 +326,7 @@
                 "exec": [
                   "pm.test('status',()=>pm.response.to.have.status(503));",
                   "pm.test('error code',()=>pm.expect(pm.response.json().code).to.eql('ELIGIBILITY_SERVICE_UNAVAILABLE'));",
-                  "pm.test('internal details hidden',()=>{const text=pm.response.text();['http://','ResourceAccessException','SocketTimeoutException','Envoy','stackTrace'].forEach(value=>pm.expect(text).not.to.include(value));});"
+                  "pm.test('internal details hidden',()=>{const text=pm.response.text();['http://','internal proxy detail','ResourceAccessException','SocketTimeoutException','EligibilityServiceUnavailableException','Envoy','stack trace','stackTrace'].forEach(value=>pm.expect(text).not.to.include(value));});"
                 ]
               }
             }

@@ -26,7 +26,7 @@ Java 21과 Spring Boot 3.4.x로 신청 서비스가 자격 검증 서비스를 �
 - `connectTimeout`: 하위 서비스와 연결을 수립하는 대기 상한
 - `readTimeout`: 연결 후 응답 데이터를 기다리는 대기 상한
 
-연결 timeout, read timeout과 그 밖의 전송 실패는 외부에 원인을 노출하지 않고 `503 ELIGIBILITY_SERVICE_UNAVAILABLE`로 변환한다. 하위 502·503·504도 같은 오류로 변환한다. 예상하지 않은 하위 4xx는 일시적 장애로 오인하지 않고 `502 DOWNSTREAM_RESPONSE_INVALID`로 변환한다.
+연결 timeout, read timeout과 그 밖의 전송 실패는 외부에 원인을 노출하지 않고 `503 ELIGIBILITY_SERVICE_UNAVAILABLE`로 변환한다. 하위 서비스의 5xx도 모두 같은 오류로 변환한다. 예상하지 않은 하위 4xx는 일시적 장애로 오인하지 않고 `502 DOWNSTREAM_RESPONSE_INVALID`로 변환한다.
 
 ## 5. Service Mesh 레벨 타임아웃
 
@@ -71,7 +71,7 @@ Local environment를 선택하고 다음 네 폴더를 사용한다.
 1. 정상 호출 및 마지막 수신 Context 확인
 2. 업무상 부적격과 422 확인
 3. 3초 지연에 대한 애플리케이션 read timeout 및 일반화된 503 확인
-4. 하위 503의 일반화된 503 변환 확인
+4. 하위 서비스의 5xx가 일반화된 503으로 변환되는지 확인
 
 교육용 동작 설정은 다음과 같다.
 
@@ -83,7 +83,7 @@ Local environment를 선택하고 다음 네 폴더를 사용한다.
 
 ## 9. 자동 테스트 항목
 
-정상·부적격 처리, Context 전달과 ID 생성, tenant 요청 격리, MDC 정리, read timeout, 하위 503과 예상하지 않은 4xx 변환, 오류 내부 정보 미노출, 실패 시 미저장, 두 timeout 프로필 및 VirtualService 2초 설정을 검증한다.
+정상·부적격 처리, Context 전달과 ID 생성, tenant 요청 격리, MDC 정리, read timeout, 하위 서비스의 5xx와 예상하지 않은 하위 4xx 변환, 오류 응답의 내부 URL·하위 본문·예외 클래스·stack trace 미노출, 실패 시 미저장, 두 timeout 프로필 및 VirtualService 2초 설정을 검증한다.
 
 ## 10. 구현하지 않은 범위
 
