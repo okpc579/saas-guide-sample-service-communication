@@ -12,7 +12,7 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-@Component
+@Component("applicationRequestContextFilter")
 public class RequestContextFilter extends OncePerRequestFilter {
     public static final String ATTRIBUTE = ServiceRequestContext.class.getName();
     private static final Pattern ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,127}");
