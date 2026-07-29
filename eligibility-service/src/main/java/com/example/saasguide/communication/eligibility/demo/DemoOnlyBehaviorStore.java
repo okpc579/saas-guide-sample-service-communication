@@ -1,3 +1,30 @@
 package com.example.saasguide.communication.eligibility.demo;
-import java.util.concurrent.ConcurrentHashMap; import java.util.concurrent.atomic.AtomicInteger; import org.springframework.stereotype.Component;
-@Component public class DemoOnlyBehaviorStore { public enum Outcome{ELIGIBLE,INELIGIBLE,DELAY_THEN_SUCCESS,ERROR_THEN_SUCCESS,ALWAYS_DELAY,ALWAYS_ERROR} public record Plan(Outcome outcome,long delayMillis,int failuresBeforeSuccess,AtomicInteger calls){public Plan(Outcome o,long d,int f){this(o,d,f,new AtomicInteger());}} private final ConcurrentHashMap<String,Plan> plans=new ConcurrentHashMap<>(); public Plan get(String id){return plans.computeIfAbsent(id,k->new Plan(Outcome.ELIGIBLE,0,0));} public void put(String id,Outcome o,long d,int f){plans.put(id,new Plan(o,d,f));} public void delete(String id){plans.remove(id);} }
+
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Component;
+
+@Component
+public class DemoOnlyBehaviorStore {
+    public enum Scenario {
+        ELIGIBLE,
+        INELIGIBLE,
+        DELAY,
+        ERROR
+    }
+
+    public record Behavior(Scenario scenario, long delayMillis) {}
+
+    private final ConcurrentHashMap<String, Behavior> behaviors = new ConcurrentHashMap<>();
+
+    public Behavior get(String applicantId) {
+        return behaviors.getOrDefault(applicantId, new Behavior(Scenario.ELIGIBLE, 0));
+    }
+
+    public void put(String applicantId, Scenario scenario, long delayMillis) {
+        behaviors.put(applicantId, new Behavior(scenario, delayMillis));
+    }
+
+    public void delete(String applicantId) {
+        behaviors.remove(applicantId);
+    }
+}

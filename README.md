@@ -1,35 +1,53 @@
-# 서비스 간 통신 타임아웃 예제 (가이드 4.1.8)
+# 서비스 간 통신 타임아웃 예제
 
-민원 신청 서비스가 신청 저장 전에 자격 검증 서비스를 동기 `GET`으로 호출하는 독립 실행 예제다. Java 21, Spring Boot 3.4.7, MVC `RestClient`, Spring Retry를 사용하며 DB 없이 인메모리로 동작한다.
+## 1. 예제 목적
 
-## 구성과 흐름
+Java 21과 Spring Boot 3.4.x로 신청 서비스가 자격 검증 서비스를 동기 REST 호출하는 최소 예제다. 애플리케이션 HTTP client의 연결·응답 timeout과 Service Mesh의 전체 요청 timeout이 적용되는 위치와 책임을 비교한다.
 
-| 모듈 | 포트 | 역할 |
+## 2. 서비스 구성
+
+| 모듈 | 로컬 포트 | 역할 |
 |---|---:|---|
-| `application-service` | 8080 | Context 검증, 자격 호출, 제한적 재시도, 신청 저장, 공통 오류 변환 |
-| `eligibility-service` | 8081 | 내부 자격 API와 **교육/demo-only** 장애 및 수신 기록 API |
+| `application-service` | 8080 | Context 구성, 자격 호출, 결과 반영, 오류 일반화 |
+| `eligibility-service` | 8081 | 내부 자격 GET API와 교육용 정상·부적격·지연·오류 시나리오 |
 
-정상 흐름은 `POST /api/applications` → `RequestContextFilter` → `EligibilityRetryClient` → `GET /internal/eligibilities/{applicantId}` → 적격 확인 → 인메모리 저장 → 201이다. 부적격은 정상 HTTP 결과의 `eligible=false`이며 422로 변환되고 저장되지 않는다. 지연·연결 실패·502/503/504는 최대 대기 상한과 제한적 재시도 후 내부 상세를 숨긴 503으로 변환한다.
+신청은 자격 검증이 성공하고 `eligible=true`일 때만 인메모리 저장소에 저장된다. 저장소는 실패 시 업무 처리가 완료되지 않음을 자동 테스트로 확인하기 위한 최소 구현이며 외부 조회 API는 제공하지 않는다.
 
-## Request Context
+## 3. 서비스 간 REST 호출과 Context 전달
 
-`X-Tenant-Id`는 필수이며 `[A-Za-z0-9][A-Za-z0-9._-]{0,127}` 형식만 확인한다. Request/Trace ID가 없으면 UUID를 만들고 응답과 하위 호출에 같은 값을 쓴다. 세 값은 request attribute로 명시 전달하고 처리 동안만 MDC에 넣은 뒤 `finally`에서 제거한다. 이 Tenant 검사는 교육용이다. 운영에서는 클라이언트 헤더를 신뢰하지 말고 인증 토큰 또는 신뢰 가능한 게이트웨이 Context와 대조해야 한다. `X-Trace-Id`도 표준 분산 추적이 아니다. 운영에서는 W3C Trace Context, `traceparent`, OpenTelemetry와 실제 Trace Backend를 검토한다.
+`POST /api/applications`는 `RequestContextFilter`에서 `ServiceRequestContext`를 만든 뒤 `EligibilityClient`가 `GET /internal/eligibilities/{applicantId}`를 호출한다. `X-Tenant-Id`는 필수다. `X-Request-Id`와 `X-Trace-Id`가 없으면 UUID를 생성한다. 세 값은 하위 호출에 전달되고 처리 중 MDC에 등록되며 `finally`에서 제거된다.
 
-## 타임아웃과 재시도
+`X-Trace-Id`는 헤더 전달 교육용 값이며 OpenTelemetry span이나 실제 Trace Backend 조회를 구현하지 않는다.
 
-`clients.eligibility` 설정이 base URL, connect/read timeout, max attempts, retry delay를 관리한다. connect timeout은 연결 수립 상한, read timeout은 연결 뒤 응답 대기 상한이다. 재시도는 멱등한 자격 **GET**의 연결 오류, read timeout, 502/503/504에만 적용한다. `max-attempts=2`는 최초 1회 + 재시도 1회다. 부적격, 4xx, 검증 오류, 신청 생성에는 재시도하지 않는다.
+## 4. 애플리케이션 레벨 타임아웃
 
-| 구분 | 애플리케이션 레벨 | Service Mesh 레벨 |
+`RestClientConfiguration`은 외부화된 `clients.eligibility.connect-timeout`과 `read-timeout`을 적용한다.
+
+- `connectTimeout`: 하위 서비스와 연결을 수립하는 대기 상한
+- `readTimeout`: 연결 후 응답 데이터를 기다리는 대기 상한
+
+연결 timeout, read timeout과 그 밖의 전송 실패는 외부에 원인을 노출하지 않고 `503 ELIGIBILITY_SERVICE_UNAVAILABLE`로 변환한다. 하위 502·503·504도 같은 오류로 변환한다. 예상하지 않은 하위 4xx는 일시적 장애로 오인하지 않고 `502 DOWNSTREAM_RESPONSE_INVALID`로 변환한다.
+
+## 5. Service Mesh 레벨 타임아웃
+
+`deploy/istio/eligibility-timeout-virtual-service.yaml`의 `VirtualService.timeout: 2s`는 Mesh data plane에서 eligibility-service 요청 전체의 상한을 설정한다. Mesh가 반환한 504를 업무 오류로 해석하고 일반화된 503으로 바꾸는 책임은 여전히 애플리케이션에 있다.
+
+이 YAML은 이미 Istio가 설치되고 sidecar 주입 및 서비스 DNS가 구성된 환경에 적용하는 정책 조각이다. 이 저장소는 Namespace, Deployment, Service 또는 전체 Kubernetes 배포를 제공하지 않는다. Mesh 비교 시 `mesh-timeout` 프로필의 앱 read timeout은 10초이므로 Mesh 2초 제한이 먼저 동작한다.
+
+## 6. 적용 위치 비교
+
+| 비교 항목 | 애플리케이션 레벨 | Service Mesh 레벨 |
 |---|---|---|
-| 주체 | HTTP Client가 연결·응답 상한 관리 | 프록시가 전체 요청 상한 관리 |
-| 범위 | 호출별 세부 설정 | 서비스·경로 중앙 정책 |
-| 오류 인식 | 예외 유형을 직접 인식 | 애플리케이션에는 HTTP 504 등 전달 |
-| 변경 | 외부 설정이나 코드; 보통 재시작/재배포 가능성 | 애플리케이션 코드 변경 불필요 |
-| 책임 | 업무 오류로 변환 | 반환 오류의 업무 해석은 애플리케이션 책임 |
+| 정책 적용 위치 | `RestClient` request factory | `VirtualService`와 data plane |
+| 값 변경 방식 | 외부 설정 변경 후 적용 방식에 따라 재시작 또는 재배포 | Mesh 정책 변경 |
+| 호출별 세부 설정 | client/호출별 connect·read 값 구성 가능 | 서비스·route 단위 전체 요청 정책 |
+| 여러 서비스 공통 적용 | 각 애플리케이션 설정 필요 | 중앙 정책으로 공통 적용 가능 |
+| 오류 인식과 변환 책임 | client 예외와 HTTP 상태를 인식하고 업무 오류로 변환 | timeout 응답 생성; 최종 업무 오류 변환은 애플리케이션 책임 |
+| 적용 전제 | 애플리케이션과 HTTP client | Service Mesh 설치와 traffic interception |
 
-둘을 반드시 함께 적용할 필요는 없다. 함께 쓰면 짧은 제한이 먼저 동작하도록 값을 조정한다. `application-timeout`은 read 2초/max 2, `mesh-timeout`은 앱의 최종 안전 상한을 10초/max 1로 두고 VirtualService의 전체 요청 2초가 먼저 동작하게 한다. Mesh 504도 일반화된 503 `ELIGIBILITY_SERVICE_UNAVAILABLE`로 바뀌며 제품명, URL, 프록시 메시지, 예외 클래스는 노출하지 않는다.
+둘을 함께 적용하면 더 짧은 제한이 먼저 동작한다. 비교 목적의 `application-timeout` 프로필은 앱 read timeout 2초를, `mesh-timeout` 프로필은 앱 read timeout 10초를 사용한다.
 
-## 실행
+## 7. 실행 방법
 
 ```bash
 ./mvnw clean verify
@@ -37,12 +55,49 @@
 ./mvnw -pl application-service spring-boot:run
 ```
 
-Docker가 있으면 `./mvnw package && docker compose up --build` 또는 `scripts/smoke-test.sh`를 사용한다. Compose는 애플리케이션 타임아웃용이며 Mesh가 아니다.
+Docker 사용 시:
 
-Istio가 설치된 환경에서만 이미지의 `replace-me`를 교체하고 `kubectl apply -f deploy/istio/`를 적용한다. 이 저장소는 Istio 설치나 실제 Mesh 검증을 제공하지 않는다. 정책 YAML 구조, 504 변환, 프로필 로딩만 일반 테스트 대상이다.
+```bash
+./mvnw package
+docker compose up --build
+```
 
-Postman에서는 Local environment를 고르고 폴더 1~5를 순서대로 실행한다. 6번은 실제 Istio 전용이다. 장애 설정 API는 `PUT/DELETE /api/testing/eligibility-behaviors/{id}`, 기록은 `GET /api/testing/received-contexts/{id}`이며 모두 교육/demo-only 기능이지 운영 장애 주입 도구가 아니다.
+Compose는 애플리케이션 timeout을 확인하는 로컬 실행 환경이며 Service Mesh가 아니다.
 
-## 제한사항
+## 8. Postman 검증 시나리오
 
-문자/알림, 비동기 이벤트, Kafka/RabbitMQ, gRPC, DB, 인증/JWT, OpenTelemetry, Service Mesh 설치, Mesh 재시도, 비멱등 재시도, Circuit Breaker, Bulkhead는 제외한다. 타임아웃은 개별 호출 대기만 제한하며 모든 장애 전파를 해결하지 않는다. 운영에서는 동시 요청 제한, Circuit Breaker, 격리, 용량 설계와 재시도 폭증 방지를 함께 검토해야 한다.
+Local environment를 선택하고 다음 네 폴더를 사용한다.
+
+1. 정상 호출 및 마지막 수신 Context 확인
+2. 업무상 부적격과 422 확인
+3. 3초 지연에 대한 애플리케이션 read timeout 및 일반화된 503 확인
+4. 하위 503의 일반화된 503 변환 확인
+
+교육용 동작 설정은 다음과 같다.
+
+```json
+{"scenario":"DELAY","delayMillis":3000}
+```
+
+실제 Mesh timeout은 Istio 환경이 있는 경우에만 선택적으로 확인한다.
+
+## 9. 자동 테스트 항목
+
+정상·부적격 처리, Context 전달과 ID 생성, tenant 요청 격리, MDC 정리, read timeout, 하위 503과 예상하지 않은 4xx 변환, 오류 내부 정보 미노출, 실패 시 미저장, 두 timeout 프로필 및 VirtualService 2초 설정을 검증한다.
+
+## 10. 구현하지 않은 범위
+
+- 애플리케이션 재시도와 Mesh 재시도
+- Circuit Breaker와 Bulkhead
+- 비동기 이벤트
+- 실제 인증 서버
+- OpenTelemetry와 Trace Backend
+- 실제 Service Mesh 설치
+- 전체 Kubernetes 배포
+- 운영용 장애 주입 기능
+
+## 11. 운영 적용 시 추가 고려사항
+
+일시적 오류에 대한 재시도는 호출의 멱등성, 최대 대기 시간, 하위 서비스 부하와 중복 적용 가능성을 고려하여 제한적으로 적용한다. 애플리케이션과 Service Mesh 양쪽에 재시도를 적용하면 총 시도 횟수가 증가할 수 있으므로 정책을 조정해야 한다.
+
+운영에서는 인증된 Tenant Context, 표준 W3C Trace Context, 연결 pool, 관측성, 용량 제한과 장애 격리도 함께 설계해야 한다. 외부 오류 응답에는 내부 URL, 하위 원문, 프록시 제품명, 예외 클래스와 stack trace를 포함하지 않는다.

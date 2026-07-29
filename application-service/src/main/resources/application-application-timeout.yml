@@ -1,3 +1,2 @@
 clients.eligibility:
   read-timeout: 2s
-  max-attempts: 2

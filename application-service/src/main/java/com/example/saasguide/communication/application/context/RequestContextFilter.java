@@ -16,21 +16,39 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class RequestContextFilter extends OncePerRequestFilter {
     public static final String ATTRIBUTE = ServiceRequestContext.class.getName();
     private static final Pattern ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,127}");
-    @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String tenant = request.getHeader("X-Tenant-Id");
+        String tenantId = request.getHeader("X-Tenant-Id");
         String requestId = valueOrUuid(request.getHeader("X-Request-Id"));
         String traceId = valueOrUuid(request.getHeader("X-Trace-Id"));
-        response.setHeader("X-Request-Id", requestId); response.setHeader("X-Trace-Id", traceId);
-        request.setAttribute(ATTRIBUTE, new ServiceRequestContext(tenant, requestId, traceId));
+        response.setHeader("X-Request-Id", requestId);
+        response.setHeader("X-Trace-Id", traceId);
         try {
-            if (tenant == null || !ID.matcher(tenant).matches()) throw new ContextInvalidException();
-            if (!ID.matcher(requestId).matches() || !ID.matcher(traceId).matches()) throw new ContextInvalidException();
-            ServiceRequestContext context = new ServiceRequestContext(tenant, requestId, traceId);
+            validate(tenantId, requestId, traceId);
+            ServiceRequestContext context = new ServiceRequestContext(tenantId, requestId, traceId);
             request.setAttribute(ATTRIBUTE, context);
-            MDC.put("tenantId", tenant); MDC.put("requestId", requestId); MDC.put("traceId", traceId);
+            MDC.put("tenantId", tenantId);
+            MDC.put("requestId", requestId);
+            MDC.put("traceId", traceId);
             chain.doFilter(request, response);
-        } finally { MDC.remove("tenantId"); MDC.remove("requestId"); MDC.remove("traceId"); }
+        } finally {
+            MDC.remove("tenantId");
+            MDC.remove("requestId");
+            MDC.remove("traceId");
+        }
     }
-    private String valueOrUuid(String value) { return value == null || value.isBlank() ? UUID.randomUUID().toString() : value; }
+
+    private void validate(String tenantId, String requestId, String traceId) {
+        if (tenantId == null || !ID.matcher(tenantId).matches()
+                || !ID.matcher(requestId).matches() || !ID.matcher(traceId).matches()) {
+            throw new ContextInvalidException();
+        }
+    }
+
+    private String valueOrUuid(String value) {
+        return value == null || value.isBlank() ? UUID.randomUUID().toString() : value;
+    }
 }

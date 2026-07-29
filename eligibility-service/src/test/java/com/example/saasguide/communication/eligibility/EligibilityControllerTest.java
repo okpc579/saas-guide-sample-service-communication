@@ -1,3 +1,33 @@
 package com.example.saasguide.communication.eligibility;
-import static org.assertj.core.api.Assertions.assertThat; import com.example.saasguide.communication.eligibility.demo.DemoOnlyBehaviorStore; import com.example.saasguide.communication.eligibility.demo.ReceivedContextStore; import com.example.saasguide.communication.eligibility.demo.DemoOnlyBehaviorStore.Outcome; import com.example.saasguide.communication.eligibility.web.EligibilityController; import org.junit.jupiter.api.Test; import org.springframework.web.server.ResponseStatusException;
-class EligibilityControllerTest { @Test void behaviorAndContext()throws Exception{var b=new DemoOnlyBehaviorStore();var c=new ReceivedContextStore();var controller=new EligibilityController(b,c);assertThat(controller.check("A","t","r","x").eligible()).isTrue();b.put("B",Outcome.INELIGIBLE,0,0);assertThat(controller.check("B","t","r","x").eligible()).isFalse();b.put("C",Outcome.ERROR_THEN_SUCCESS,0,1);try{controller.check("C","t","r","x");}catch(ResponseStatusException ignored){}assertThat(controller.check("C","t","r","x").eligible()).isTrue();assertThat(c.get("C").receivedCount()).isEqualTo(2);b.delete("C");assertThat(controller.check("C","t","r","x").eligible()).isTrue();} }
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.example.saasguide.communication.eligibility.demo.DemoOnlyBehaviorStore;
+import com.example.saasguide.communication.eligibility.demo.DemoOnlyBehaviorStore.Scenario;
+import com.example.saasguide.communication.eligibility.demo.ReceivedContextStore;
+import com.example.saasguide.communication.eligibility.web.EligibilityController;
+import org.junit.jupiter.api.Test;
+import org.springframework.web.server.ResponseStatusException;
+
+class EligibilityControllerTest {
+    @Test
+    void supportsFourMinimalScenariosAndRecordsLastContext() throws Exception {
+        var behaviors = new DemoOnlyBehaviorStore();
+        var contexts = new ReceivedContextStore();
+        var controller = new EligibilityController(behaviors, contexts);
+
+        assertThat(controller.check("A", "tenant-a", "request-a", "trace-a").eligible()).isTrue();
+        assertThat(contexts.get("A").tenantId()).isEqualTo("tenant-a");
+
+        behaviors.put("B", Scenario.INELIGIBLE, 0);
+        assertThat(controller.check("B", "tenant-b", "request-b", "trace-b").eligible()).isFalse();
+
+        behaviors.put("C", Scenario.ERROR, 0);
+        assertThatThrownBy(() -> controller.check("C", "tenant-c", "request-c", "trace-c"))
+                .isInstanceOf(ResponseStatusException.class);
+
+        behaviors.put("D", Scenario.DELAY, 10);
+        assertThat(controller.check("D", "tenant-d", "request-d", "trace-d").eligible()).isTrue();
+    }
+}
