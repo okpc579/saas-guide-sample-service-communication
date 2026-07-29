@@ -4,14 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withResourceNotFound;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServiceUnavailable;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.example.saasguide.communication.application.context.ServiceRequestContext;
 import com.example.saasguide.communication.application.error.DownstreamResponseInvalidException;
 import com.example.saasguide.communication.application.error.EligibilityServiceUnavailableException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -35,20 +37,24 @@ class EligibilityClientTest {
         server.verify();
     }
 
-    @Test
-    void converts503ToGeneralAvailabilityError() {
+    @ParameterizedTest
+    @ValueSource(ints = {500, 502, 503, 504})
+    void convertsEveryDownstream5xxToGeneralAvailabilityError(int status) {
         server.expect(requestTo("http://internal-eligibility/internal/eligibilities/A"))
-                .andRespond(withServiceUnavailable().body("internal proxy detail"));
+                .andRespond(withStatus(HttpStatus.valueOf(status)).body(
+                        "internal URL http://eligibility/secret; downstream stack trace"));
 
         assertThatThrownBy(() -> client.checkEligibility("A", context))
                 .isExactlyInstanceOf(EligibilityServiceUnavailableException.class)
                 .hasMessage("Eligibility unavailable");
     }
 
-    @Test
-    void convertsUnexpected4xxToInvalidDownstreamResponse() {
+    @ParameterizedTest
+    @ValueSource(ints = {400, 404})
+    void convertsUnexpected4xxToInvalidDownstreamResponse(int status) {
         server.expect(requestTo("http://internal-eligibility/internal/eligibilities/A"))
-                .andRespond(withResourceNotFound().body("internal URL and exception"));
+                .andRespond(withStatus(HttpStatus.valueOf(status)).body(
+                        "internal URL http://eligibility/secret; downstream exception and stack trace"));
 
         assertThatThrownBy(() -> client.checkEligibility("A", context))
                 .isExactlyInstanceOf(DownstreamResponseInvalidException.class)

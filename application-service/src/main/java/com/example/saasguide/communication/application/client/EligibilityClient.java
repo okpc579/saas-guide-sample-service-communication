@@ -40,7 +40,7 @@ public class EligibilityClient {
     }
 
     private RuntimeException translateResponseError(HttpStatusCode status) {
-        if (status.value() == 502 || status.value() == 503 || status.value() == 504) {
+        if (status.is5xxServerError()) {
             return new EligibilityServiceUnavailableException();
         }
         return new DownstreamResponseInvalidException();
