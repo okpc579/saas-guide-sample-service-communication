@@ -3,6 +3,7 @@ package com.example.saasguide.communication.application.client;
 import com.example.saasguide.communication.application.context.ServiceRequestContext;
 import com.example.saasguide.communication.application.error.DownstreamResponseInvalidException;
 import com.example.saasguide.communication.application.error.EligibilityServiceUnavailableException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
@@ -13,7 +14,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class EligibilityClient {
     private final RestClient restClient;
 
-    public EligibilityClient(RestClient eligibilityRestClient) {
+    public EligibilityClient(@Qualifier("eligibilityRestClient") RestClient eligibilityRestClient) {
         this.restClient = eligibilityRestClient;
     }
 
